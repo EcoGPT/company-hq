@@ -1,0 +1,72 @@
+{
+	"_source": "The JSON keys the native app's Swift wire structs decode for the Library (folders, files, documents) and scheduled meetings, taken from Wire.swift and HQClient.swift. Regenerate when the app's structs change.",
+	"structs": {
+		"Folder": {
+			"id": { "required": true },
+			"name": { "required": true },
+			"parent_folder_id": { "required": false },
+			"system_slug": { "required": false },
+			"created_at": { "required": true }
+		},
+		"HubFile": {
+			"id": { "required": true },
+			"file_name": { "required": true },
+			"content_type": { "required": true },
+			"byte_size": { "required": true },
+			"conversation_id": { "required": true },
+			"conversation_title": { "required": false },
+			"uploader_name": { "required": true },
+			"created_at": { "required": true },
+			"folder_id": { "required": false }
+		},
+		"ShelfDocumentSummary": {
+			"slug": { "required": true },
+			"title": { "required": true },
+			"updated_at": { "required": true },
+			"updated_by_name": { "required": true },
+			"folder_id": { "required": false }
+		},
+		"ShelfDocument": {
+			"slug": { "required": true },
+			"title": { "required": true },
+			"content": { "required": true },
+			"updated_at": { "required": true },
+			"updated_by_name": { "required": true }
+		},
+		"Meeting": {
+			"id": { "required": true },
+			"title": { "required": true },
+			"scheduled_at": { "required": false },
+			"created_by_person_id": { "required": true },
+			"created_at": { "required": true },
+			"conversation_id": { "required": false },
+			"invitee_person_ids": { "required": false },
+			"recurrence": { "required": false },
+			"series_id": { "required": false }
+		},
+		"MeetingsPayload": {
+			"meetings": { "required": true, "of": "Meeting", "list": true }
+		},
+		"LibraryFolders": {
+			"folders": { "required": true, "of": "Folder", "list": true }
+		},
+		"LibraryFiles": {
+			"files": { "required": true, "of": "HubFile", "list": true }
+		},
+		"LibraryDocuments": {
+			"documents": { "required": true, "of": "ShelfDocumentSummary", "list": true }
+		},
+		"LibraryDocument": {
+			"document": { "required": true, "of": "ShelfDocument" }
+		},
+		"MeetingEnvelope": {
+			"meeting": { "required": true, "of": "Meeting" }
+		}
+	},
+	"frames": {
+		"meetings": "MeetingsPayload"
+	},
+	"sent_by": {
+		"meetings": "apps/meetings/v1.test.ts"
+	}
+}

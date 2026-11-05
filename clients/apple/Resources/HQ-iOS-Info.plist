@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+    <array><dict>
+        <key>CFBundleURLName</key><string>$(PRODUCT_BUNDLE_IDENTIFIER).thread</string>
+        <key>CFBundleURLSchemes</key><array><string>hq</string></array>
+        <key>CFBundleTypeRole</key><string>Viewer</string>
+    </dict></array>
+
+	<!--
+	  Hand-maintained and merely REFERENCED (INFOPLIST_FILE), never generated
+	  from project.yml. Everything Xcode has an INFOPLIST_KEY_ setting for lives in
+	  project.yml and is merged over this file at build time; this holds only
+	  the keys that have no such setting.
+	-->
+	<!--
+	  A local server is a normal way to run this app, and iOS blocks cleartext by
+	  default. NSAllowsLocalNetworking is the narrow allowance: iOS permits
+	  cleartext only to IP addresses, unqualified host names and .local names.
+	  Any other host stays HTTPS-only; never NSAllowsArbitraryLoads. The sign-in
+	  screen is stricter still: it accepts http:// only for localhost, 127.0.0.1
+	  and .local hosts.
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<!-- HTTPS-only (exempt) encryption: answers TestFlight's export-compliance
+	     question once, here, instead of manually on every uploaded build. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<!-- Keeps a meeting alive when the phone locks or the user leaves the
+		     app mid-call. Without it iOS suspends the process and the call
+		     goes silent for everyone else in the room. -->
+		<string>audio</string>
+		<!-- Lets a push wake the app to sync before the banner is tapped. -->
+		<string>remote-notification</string>
+		<!-- Lets a VoIP push (PushKit) start the app to ring through CallKit.
+		     Only a team build registers for one; any other build never does. -->
+		<string>voip</string>
+	</array>
+</dict>
+</plist>

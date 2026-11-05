@@ -1,0 +1,343 @@
+{
+	"_source": "The JSON keys the native app's Swift wire structs decode (wire version 1), taken from its Wire.swift and HQClient.swift. Regenerate when the app's structs change.",
+	"frames": {
+		"hello": "HelloPayload",
+		"message": "MessagePayload",
+		"message_updated": "MessagePayload",
+		"conversation_updated": "ConversationPayload",
+		"conversation_removed": "ConversationRemovedPayload",
+		"person_updated": "PersonPayload",
+		"presence": "PresencePayload",
+		"typing": "TypingPayload",
+		"bot_state": "BotStatePayload",
+		"read": "ReadPayload",
+		"sync_batch": "SyncBatchPayload",
+		"sync_complete": "SyncCompletePayload",
+		"error": "ErrorPayload"
+	},
+	"ignored": {
+		"HelloPayload": ["wire_version"],
+		"EnrollResponse": ["wire_version"]
+	},
+	"structs": {
+		"Person": {
+			"id": {
+				"required": true
+			},
+			"name": {
+				"required": true
+			},
+			"kind": {
+				"required": true
+			},
+			"is_admin": {
+				"required": true
+			},
+			"avatar_id": {
+				"required": false
+			},
+			"removed_at": {
+				"required": false
+			}
+		},
+		"Attachment": {
+			"id": {
+				"required": true
+			},
+			"file_name": {
+				"required": true
+			},
+			"content_type": {
+				"required": true
+			},
+			"byte_size": {
+				"required": true
+			},
+			"width": {
+				"required": false
+			},
+			"height": {
+				"required": false
+			}
+		},
+		"Reaction": {
+			"emoji": {
+				"required": true
+			},
+			"person_ids": {
+				"required": true
+			}
+		},
+		"EditRevision": {
+			"content": {
+				"required": true
+			},
+			"edited_at": {
+				"required": true
+			}
+		},
+		"ReplyStub": {
+			"id": {
+				"required": true
+			},
+			"content": {
+				"required": true
+			},
+			"sender_name": {
+				"required": true
+			}
+		},
+		"Message": {
+			"id": {
+				"required": true
+			},
+			"conversation_id": {
+				"required": true
+			},
+			"sender_person_id": {
+				"required": true
+			},
+			"sender_name": {
+				"required": true
+			},
+			"content": {
+				"required": true
+			},
+			"created_at": {
+				"required": true
+			},
+			"edited_at": {
+				"required": false
+			},
+			"deleted_at": {
+				"required": false
+			},
+			"is_hidden": {
+				"required": false
+			},
+			"reply_to": {
+				"required": false,
+				"of": "ReplyStub",
+				"list": false
+			},
+			"reactions": {
+				"required": true,
+				"of": "Reaction",
+				"list": true
+			},
+			"attachments": {
+				"required": true,
+				"of": "Attachment",
+				"list": true
+			},
+			"edit_history": {
+				"required": false,
+				"of": "EditRevision",
+				"list": true
+			},
+			"kind": {
+				"required": false
+			},
+			"via": {
+				"required": false
+			}
+		},
+		"ReadMark": {
+			"person_id": {
+				"required": true
+			},
+			"last_read_message_id": {
+				"required": true
+			}
+		},
+		"Conversation": {
+			"id": {
+				"required": true
+			},
+			"kind": {
+				"required": true
+			},
+			"title": {
+				"required": false
+			},
+			"member_ids": {
+				"required": true
+			},
+			"created_at": {
+				"required": true
+			},
+			"last_message": {
+				"required": false,
+				"of": "Message",
+				"list": false
+			},
+			"unread_count": {
+				"required": true
+			},
+			"read_marks": {
+				"required": true,
+				"of": "ReadMark",
+				"list": true
+			},
+			"room_slug": {
+				"required": false
+			},
+			"avatar_id": {
+				"required": false
+			}
+		},
+		"BotStatePayload": {
+			"conversation_id": {
+				"required": true
+			},
+			"person_id": {
+				"required": true
+			},
+			"label": {
+				"required": false
+			},
+			"expires_at": {
+				"required": true
+			}
+		},
+		"ConversationPayload": {
+			"conversation": {
+				"required": true,
+				"of": "Conversation",
+				"list": false
+			}
+		},
+		"ConversationRemovedPayload": {
+			"conversation_id": {
+				"required": true
+			}
+		},
+		"ErrorPayload": {
+			"code": {
+				"required": true
+			}
+		},
+		"HelloPayload": {
+			"device_id": {
+				"required": true
+			},
+			"person_id": {
+				"required": true
+			},
+			"online_person_ids": {
+				"required": true
+			}
+		},
+		"MessagePayload": {
+			"message": {
+				"required": true,
+				"of": "Message",
+				"list": false
+			}
+		},
+		"PersonPayload": {
+			"person": {
+				"required": true,
+				"of": "Person",
+				"list": false
+			}
+		},
+		"PresencePayload": {
+			"person_id": {
+				"required": true
+			},
+			"is_online": {
+				"required": true
+			}
+		},
+		"ReadPayload": {
+			"conversation_id": {
+				"required": true
+			},
+			"person_id": {
+				"required": true
+			},
+			"last_read_message_id": {
+				"required": true
+			}
+		},
+		"SyncBatchPayload": {
+			"messages": {
+				"required": true,
+				"of": "Message",
+				"list": true
+			}
+		},
+		"SyncCompletePayload": {
+			"is_partial": {
+				"required": true
+			}
+		},
+		"TypingPayload": {
+			"conversation_id": {
+				"required": true
+			},
+			"person_id": {
+				"required": true
+			},
+			"expires_at": {
+				"required": true
+			}
+		},
+		"CallsSnapshot": {
+			"calls": {
+				"required": true
+			},
+			"meetings": {
+				"required": true
+			},
+			"ringing": {
+				"required": true
+			}
+		},
+		"McpKeySummary": {
+			"id": {
+				"required": true
+			},
+			"label": {
+				"required": true
+			},
+			"scopes": {
+				"required": true
+			},
+			"created_at": {
+				"required": true
+			},
+			"revoked_at": {
+				"required": false
+			},
+			"last_used_at": {
+				"required": false
+			}
+		},
+		"MintedMcpKey": {
+			"id": {
+				"required": true
+			},
+			"key": {
+				"required": true
+			},
+			"label": {
+				"required": true
+			}
+		},
+		"EnrollResponse": {
+			"bearer": {
+				"required": true
+			},
+			"device_id": {
+				"required": true
+			},
+			"person": {
+				"required": true,
+				"of": "Person",
+				"list": false
+			}
+		}
+	}
+}

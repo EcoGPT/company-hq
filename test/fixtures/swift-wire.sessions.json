@@ -1,0 +1,76 @@
+{
+	"_source": "The JSON keys the native app's Swift structs decode for synced coding sessions: CodingThread and CodingThreadDetail (CodingThreadWire.swift, CodingThreads.swift), CodingSession and its page (CodingSessionSection.swift), and the transcript the thread view reads. `ignored` lists keys the server sends that the app does not decode: the helper app reads them.",
+	"structs": {
+		"CodingThread": {
+			"session_id": { "required": true },
+			"intent": { "required": true },
+			"state": { "required": true },
+			"last_seen_at": { "required": true },
+			"last_activity_at": { "required": false },
+			"title": { "required": false },
+			"owner_person_id": { "required": true },
+			"owner_name": { "required": true },
+			"provider": { "required": true },
+			"tasks": { "required": true, "of": "CodingThreadTask", "list": true },
+			"projects": { "required": true, "of": "CodingThreadProject", "list": true },
+			"git_branch": { "required": false }
+		},
+		"CodingThreadTask": {
+			"id": { "required": true },
+			"ref": { "required": true },
+			"title": { "required": true }
+		},
+		"CodingThreadProject": {
+			"id": { "required": true },
+			"name": { "required": true }
+		},
+		"CodingThreadPage": {
+			"sessions": { "required": true, "of": "CodingThread", "list": true },
+			"next_cursor": { "required": false }
+		},
+		"CodingThreadDetail": {
+			"thread": { "required": true, "of": "CodingThread" },
+			"session": { "required": false, "of": "CodingSession" }
+		},
+		"CodingSession": {
+			"id": { "required": true },
+			"provider": { "required": true },
+			"source_id": { "required": true },
+			"title": { "required": true },
+			"task_id": { "required": false },
+			"task_ids": { "required": false },
+			"message_count": { "required": true },
+			"revision": { "required": false },
+			"tool_history": { "required": false },
+			"updated_at": { "required": true }
+		},
+		"CodingSessionPage": {
+			"sessions": { "required": true, "of": "CodingSession", "list": true },
+			"next_before": { "required": false }
+		},
+		"CodingTranscript": {
+			"messages": { "required": true, "of": "CodingTranscriptEntry", "list": true }
+		},
+		"CodingTranscriptEntry": {
+			"id": { "required": true },
+			"role": { "required": true },
+			"text": { "required": true },
+			"timestamp": { "required": false }
+		}
+	},
+	"ignored": {
+		"CodingSession": [
+			"owner_person_id",
+			"git_branch",
+			"created_at",
+			"activity_at",
+			"archived_at",
+			"sha256",
+			"bytes",
+			"cwd",
+			"files_touched",
+			"repo"
+		],
+		"CodingTranscript": ["projection", "title", "cwd", "git_branch", "task_ref"]
+	}
+}

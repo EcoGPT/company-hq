@@ -1,0 +1,15 @@
+node_modules/
+data/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+vault.key
+.DS_Store
+.scaffold-*
+
+clients/apple/.dd/
+clients/apple/HQ.xcodeproj/
+*.p8
+*.pem

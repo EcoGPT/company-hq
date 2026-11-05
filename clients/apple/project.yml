@@ -1,0 +1,415 @@
+# XcodeGen manifest. HQ.xcodeproj is generated, never hand-edited.
+# Regenerate with: xcodegen generate   (run before every build)
+#
+# Identity and signing live in Config/Signing.xcconfig (BUNDLE_ID_PREFIX, DEVELOPMENT_TEAM).
+name: HQ
+options:
+  bundleIdPrefix: org.example
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: '18.0'
+    macOS: '15.0'
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    MACOSX_DEPLOYMENT_TARGET: '15.0'
+    IPHONEOS_DEPLOYMENT_TARGET: '18.0'
+    ENABLE_HARDENED_RUNTIME: NO
+packages:
+  # Google's WebRTC.framework, packaged as a binary XCFramework. Building
+  # libwebrtc from source is a multi-hour affair with a depot_tools checkout;
+  # this is the same library, versioned and signed, and it is what every native
+  # client in this space ships.
+  WebRTC:
+    url: https://github.com/stasel/WebRTC
+    exactVersion: 152.0.0
+targets:
+  HQ:
+    type: application
+    platform: macOS
+    dependencies:
+      - package: WebRTC
+      # Built first and copied into the app by "Embed HQSessionSync" below.
+      - target: HQSessionSync
+        embed: false
+      # The desktop widgets (see HQWidgets below): built with the app so the "Embed widgets"
+      # script can copy the extension in, which it does only in team mode.
+      - target: HQWidgets
+        embed: false
+        link: false
+    sources:
+      - path: Sources/Shared
+      - path: Sources/macOS
+      - path: Sources/WidgetShared
+      - path: Sources/SessionSyncShared
+    # Declared so the scheme is not auto-created: the implicit scheme gathers
+    # coverage, which instruments every build of it, including the shipped
+    # Release. Tests opt in with `xcodebuild test -enableCodeCoverage YES`.
+    scheme:
+      testTargets:
+        - HQTests
+      gatherCoverageData: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq
+        PRODUCT_NAME: HQ
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Resources/HQ-mac-Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: HQ
+        INFOPLIST_KEY_NSHumanReadableCopyright: '© HQ Community contributors'
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.business
+        INFOPLIST_KEY_NSCameraUsageDescription: HQ uses your camera so teammates can see you in meetings.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: HQ uses your microphone so teammates can hear you in meetings.
+        # Referenced, never generated: XcodeGen's `entitlements:` key WRITES
+        # the file from its own properties and would silently replace the
+        # hand-maintained one. HQ_ENTITLEMENTS_SUFFIX (Config/Signing.xcconfig)
+        # is empty in local mode and `-Team` in team mode, which adds the push
+        # entitlement: its environment is baked into the signature, so Debug
+        # (development) and Release (production) each declare the matching one.
+        CODE_SIGN_ENTITLEMENTS: Resources/HQ$(HQ_ENTITLEMENTS_SUFFIX).entitlements
+        # `HQ_PUSH` and `HQ_WIDGETS` in team mode only: a build with no team never registers
+        # for push and never starts the widget sync.
+        # `HQ_SESSION_SYNC` likewise: session sync's Keychain item needs a stable signing
+        # identity, which an ad-hoc build does not have (docs/session-sync.md).
+        HQ_SESSION_SYNC_CONDITION_local: ''
+        HQ_SESSION_SYNC_CONDITION_team: HQ_SESSION_SYNC
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) $(HQ_PUSH_CONDITION) $(HQ_WIDGETS_CONDITION) $(HQ_SESSION_SYNC_CONDITION_$(HQ_SIGNING_MODE))
+      configs:
+        Release:
+          CODE_SIGN_ENTITLEMENTS: Resources/HQ-Release$(HQ_ENTITLEMENTS_SUFFIX).entitlements
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+          ENABLE_HARDENED_RUNTIME: YES
+    postBuildScripts:
+      # HQBuildInfo reads this to report the build in call joins; runs every
+      # build (before signing, so the edit is inside the signature). The
+      # processed Info.plist is a declared input: without it the build
+      # system may regenerate the plist AFTER the stamp and erase it.
+      - name: Stamp build hash
+        script: |
+          HASH=$(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || echo dev)
+          if ! git -C "$SRCROOT" diff --quiet 2>/dev/null; then HASH="$HASH-dirty"; fi
+          PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+          /usr/libexec/PlistBuddy -c "Delete :HQBuildHash" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :HQBuildHash string $HASH" "$PLIST"
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        basedOnDependencyAnalysis: false
+      # SMAppService.loginItem needs the helper at Contents/Library/LoginItems, and
+      # it must be a helper app with its own bundle id. Copied before signing so
+      # the app's seal covers it.
+      - name: Embed HQSessionSync
+        script: |
+          DEST="$BUILT_PRODUCTS_DIR/$CONTENTS_FOLDER_PATH/Library/LoginItems"
+          mkdir -p "$DEST"
+          rm -rf "$DEST/HQSessionSync.app"
+          cp -R "$BUILT_PRODUCTS_DIR/HQSessionSync.app" "$DEST/HQSessionSync.app"
+        inputFiles:
+          - $(BUILT_PRODUCTS_DIR)/HQSessionSync.app/Contents/MacOS/HQSessionSync
+          # Carries the helper's source stamp, which can change on its own.
+          - $(BUILT_PRODUCTS_DIR)/HQSessionSync.app/Contents/Info.plist
+        outputFiles:
+          - $(BUILT_PRODUCTS_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LoginItems/HQSessionSync.app/Contents/MacOS/HQSessionSync
+      # The widget extension goes into Contents/PlugIns in team mode only, where WidgetKit finds it.
+      # It is already signed (by its own target); a local build has no App Group for it to use, so
+      # it gets no extension, and a stale copy from an earlier team build is removed. Runs before
+      # the app is signed, so the app's seal covers it.
+      - name: Embed widgets
+        script: |
+          PLUGINS="$BUILT_PRODUCTS_DIR/$PLUGINS_FOLDER_PATH"
+          rm -rf "$PLUGINS/HQWidgets.appex"
+          if [ "$HQ_SIGNING_MODE" = team ]; then
+            mkdir -p "$PLUGINS"
+            ditto "$BUILT_PRODUCTS_DIR/HQWidgets.appex" "$PLUGINS/HQWidgets.appex"
+          fi
+        basedOnDependencyAnalysis: false
+  # Session sync's background helper: a login item inside HQ.app that reads this Mac's
+  # Claude Code and Codex conversations and uploads them as text. Its bundle id is the
+  # app's plus `.session-sync`; the Keychain item, the folder and the login item are
+  # all named from it. See docs/session-sync.md.
+  HQSessionSync:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/SessionSyncAgent
+      - path: Sources/SessionSyncShared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.session-sync
+        PRODUCT_NAME: HQSessionSync
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_CFBundleDisplayName: HQ Session Sync
+        INFOPLIST_KEY_NSHumanReadableCopyright: '© HQ Community contributors'
+        SKIP_INSTALL: YES
+      configs:
+        Release:
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+          ENABLE_HARDENED_RUNTIME: YES
+    postBuildScripts:
+      # The app keeps a running helper across an update when this stamp is unchanged:
+      # the last commit touching the folders compiled into this target or this file,
+      # "-dirty" with uncommitted edits or new files there, "dev" without history. It
+      # names the code, not the binary (release re-signs and builds are not
+      # reproducible). Runs every build, before signing, and writes only a changed
+      # stamp, so "Embed HQSessionSync" re-copies the helper only when it changes.
+      - name: Stamp helper source hash
+        script: |
+          PATHS="Sources/SessionSyncAgent Sources/SessionSyncShared project.yml"
+          HASH=$(git -C "$SRCROOT" log -1 --abbrev=12 --format=%h -- $PATHS 2>/dev/null)
+          if [ -z "$HASH" ]; then
+            HASH=dev
+          elif ! git -C "$SRCROOT" diff --quiet HEAD -- $PATHS \
+            || [ -n "$(git -C "$SRCROOT" ls-files --others --exclude-standard -- $PATHS)" ]; then
+            HASH="$HASH-dirty"
+          fi
+          PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+          if [ "$(/usr/libexec/PlistBuddy -c "Print :HQSessionSyncSourceHash" "$PLIST" 2>/dev/null)" != "$HASH" ]; then
+            /usr/libexec/PlistBuddy -c "Delete :HQSessionSyncSourceHash" "$PLIST" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :HQSessionSyncSourceHash string $HASH" "$PLIST"
+          fi
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        basedOnDependencyAnalysis: false
+  # The same app on the phone. It shares `Sources/Shared` with the Mac:
+  # the wire mirror, the client, AppStore, the call engine, the design
+  # tokens. It brings its own views, because a Messages-shaped iPhone app
+  # is a push navigation stack, not a three-column window. `Views/` is the
+  # Mac's view layer and is the one thing excluded.
+  #
+  # The bundle id is deliberately the SAME as the Mac's.
+  HQ-iOS:
+    type: application
+    platform: iOS
+    dependencies:
+      - package: WebRTC
+    sources:
+      - path: Sources/Shared
+        excludes:
+          - 'Views/**'
+      - path: Sources/iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq
+        PRODUCT_NAME: HQ
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: HQ
+        INFOPLIST_KEY_NSHumanReadableCopyright: '© HQ Community contributors'
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        # All four, including upside-down: App Store validation rejects the
+        # upload outright without the full set on an iPad-capable app (iPad
+        # multitasking), and Face ID iPhones ignore upside-down anyway.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: >-
+          UIInterfaceOrientationPortrait
+          UIInterfaceOrientationPortraitUpsideDown
+          UIInterfaceOrientationLandscapeLeft
+          UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_NSCameraUsageDescription: HQ uses your camera so teammates can see you in meetings.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: HQ uses your microphone so teammates can hear you in meetings.
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: HQ attaches photos you pick to your messages.
+        # Saving OUT is a separate permission from picking: the message menu's
+        # "Save to Photos" (and the share sheet's Save Image) crash without it.
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: HQ saves photos from your messages to your library.
+        TARGETED_DEVICE_FAMILY: '1,2'
+        # Referenced, never generated: XcodeGen's `info:` key would WRITE
+        # this file from its own properties. Xcode merges every INFOPLIST_KEY_
+        # setting here over it; the file holds only what has no such setting
+        # (UIBackgroundModes, the URL type).
+        INFOPLIST_FILE: Resources/HQ-iOS-Info.plist
+        # Empty in local mode (the phone app has no entitlements), the push
+        # entitlement file in team mode; see Config/Signing.xcconfig.
+        CODE_SIGN_ENTITLEMENTS: $(HQ_IOS_ENTITLEMENTS)
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) $(HQ_PUSH_CONDITION)
+    postBuildScripts:
+      # Same stamp as the Mac: HQBuildInfo reports it on call joins, so
+      # version skew across a meeting's participants shows up in the logs.
+      - name: Stamp build hash
+        script: |
+          HASH=$(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || echo dev)
+          if ! git -C "$SRCROOT" diff --quiet 2>/dev/null; then HASH="$HASH-dirty"; fi
+          PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+          /usr/libexec/PlistBuddy -c "Delete :HQBuildHash" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :HQBuildHash string $HASH" "$PLIST"
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        basedOnDependencyAnalysis: false
+  # The Mac's desktop widgets (My Tasks and Board): a sandboxed WidgetKit extension that shares only
+  # the summary model, the App Group shelf and the widget API with the app, never the device
+  # bearer. The group is `$(TeamIdentifierPrefix)` + the app's bundle id, so it needs a team:
+  # team mode's entitlements name it, local mode's do not, and only team mode embeds the
+  # extension. macOS 26 target; the app itself still runs on 15.
+  HQWidgets:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: '26.0'
+    sources:
+      - path: Sources/Widgets
+      - path: Sources/WidgetShared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.widgets
+        PRODUCT_NAME: HQWidgets
+        MACOSX_DEPLOYMENT_TARGET: '26.0'
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Resources/HQWidgets-Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: HQ
+        INFOPLIST_KEY_NSHumanReadableCopyright: '© HQ Community contributors'
+        SKIP_INSTALL: YES
+        # Hand-maintained, like the app's (see HQ above): never XcodeGen's `entitlements:` key.
+        CODE_SIGN_ENTITLEMENTS: Resources/HQWidgets$(HQ_ENTITLEMENTS_SUFFIX).entitlements
+      configs:
+        Release:
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+          ENABLE_HARDENED_RUNTIME: YES
+  HQPhotoTests-iOS:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests-iOS
+      - path: Sources/iOS/PhotoZoomScrollView.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.photo-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+    scheme:
+      testTargets:
+        - HQPhotoTests-iOS
+  HQAudioTests-iOS:
+    type: bundle.unit-test
+    platform: iOS
+    dependencies:
+      - package: WebRTC
+    sources:
+      - path: Tests-Audio-iOS
+      - path: Sources/iOS/CallAudioConfiguration.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.audio-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+    scheme:
+      testTargets:
+        - HQAudioTests-iOS
+  HQTests:
+    type: bundle.unit-test
+    platform: macOS
+    dependencies:
+      - target: HQ
+    sources:
+      - path: Tests
+      - path: Tests-Typing
+      # Session sync's app-side tests, and the helper's own code (not main.swift), compiled
+      # into this bundle so LiveSessionSyncTests can drive the helper's real transport. Inside
+      # this bundle the helper's types shadow the app's copies (the app's are `HQ.`-qualified).
+      - path: Tests-SessionSync/App
+      - path: Tests-SessionSync/Shared
+      - path: Sources/SessionSyncAgent
+        excludes:
+          - main.swift
+      - path: Sources/SessionSyncShared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.tests
+        CODE_SIGNING_ALLOWED: NO
+  HQHomeTests-iOS:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests-Home
+      - path: Sources/Shared/Store/HomePreferences.swift
+      # The socket's reconnect and foreground rules (pure), tested from Tests-Home without the app.
+      - path: Sources/Shared/Net/EventSocketReconnectPolicy.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.home-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+    scheme:
+      testTargets:
+        - HQHomeTests-iOS
+
+  # Who a typed key belongs to on a page with no composer (RootView's typing
+  # monitor), against real AppKit views with no app. HQTests runs the same file.
+  HQTypingTests-Mac:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests-Typing
+      - path: Sources/Shared/Views/TypingReclaim.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.typing-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) TYPING_RULE_STANDALONE
+    scheme:
+      testTargets:
+        - HQTypingTests-Mac
+
+  # The Agents page's rules with no host app: the wire types and the pure
+  # models compile straight into the bundle. HQTests runs the same files.
+  HQLiveTests-Mac:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/LiveThreadsModelTests.swift
+      - path: Tests/LiveCanvasLayoutTests.swift
+      - path: Sources/Shared/Projects/CodingThreadWire.swift
+      - path: Sources/Shared/Projects/LiveThreadsModel.swift
+      - path: Sources/Shared/Projects/LiveCanvasLayout.swift
+      - path: Sources/Shared/Projects/LiveCanvasPositions.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.live-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) LISTING_HEADLESS
+    scheme:
+      testTargets:
+        - HQLiveTests-Mac
+
+  HQHomeTests-Mac:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests-Home
+      - path: Sources/Shared/Store/HomePreferences.swift
+      - path: Sources/Shared/Net/EventSocketReconnectPolicy.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.desktop-home-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+    scheme:
+      testTargets:
+        - HQHomeTests-Mac
+
+  # Session sync's helper, with no host app: the collector, the transport and the
+  # shared config compile straight into the bundle (everything but main.swift).
+  HQSessionSyncTests-Mac:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests-SessionSync
+        excludes:
+          - 'App/**'
+      - path: Sources/SessionSyncAgent
+        excludes:
+          - main.swift
+      - path: Sources/SessionSyncShared
+      - path: Sources/macOS/SessionSyncGate.swift
+      - path: Sources/macOS/SessionSyncNotice.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).hq.session-sync-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+    scheme:
+      testTargets:
+        - HQSessionSyncTests-Mac

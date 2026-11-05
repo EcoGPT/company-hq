@@ -1,0 +1,226 @@
+name: apple
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'clients/apple/**'
+      - '.github/workflows/apple.yml'
+  pull_request:
+    paths:
+      - 'clients/apple/**'
+      - '.github/workflows/apple.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    # macos-26 (arm64) ships Xcode 26.6 as its default and iOS 26.5 simulators with an
+    # iPhone 17, per the image readme:
+    # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: clients/apple
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Select Xcode 26.6
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app
+      - name: Install XcodeGen (pinned release, checked against its sha256)
+        env:
+          XCODEGEN_VERSION: '2.46.0'
+          # The digest of xcodegen.zip on the release page:
+          # https://github.com/yonaskolb/XcodeGen/releases/tag/2.46.0
+          XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+        run: |
+          set -eu
+          dir="$RUNNER_TEMP/xcodegen-download"
+          mkdir -p "$dir"
+          curl -fsSL -o "$dir/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $dir/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$dir/xcodegen.zip" -d "$dir/unpacked"
+          echo "$dir/unpacked/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate the Xcode project
+        run: xcodegen generate
+      # Each signing mode resolves to its own entitlements file and push and widget flags; an empty value
+      # means no entitlements at all.
+      - name: Check what each signing mode picks
+        run: |
+          set -eu
+          check() { # target, sdk, configuration, mode, expected entitlements, expect HQ_PUSH (yes/no), expect HQ_WIDGETS (yes/no)
+            settings=$(xcodebuild -project HQ.xcodeproj -target "$1" -sdk "$2" -configuration "$3" \
+              -showBuildSettings HQ_SIGNING_MODE="$4" 2>/dev/null)
+            got=$(printf '%s\n' "$settings" | awk -F' = ' '$1 ~ /^ +CODE_SIGN_ENTITLEMENTS$/ { print $2 }')
+            flags=$(printf '%s\n' "$settings" | awk -F' = ' '$1 ~ /^ +SWIFT_ACTIVE_COMPILATION_CONDITIONS$/ { print $2 }')
+            [ "$got" = "$5" ] || { echo "$1 $3 $4: entitlements '$got', want '$5'"; exit 1; }
+            [ -z "$got" ] || test -f "$got"
+            case " $flags " in *" HQ_PUSH "*) push=yes ;; *) push=no ;; esac
+            [ "$push" = "$6" ] || { echo "$1 $3 $4: HQ_PUSH $push, want $6 ($flags)"; exit 1; }
+            case " $flags " in *" HQ_WIDGETS "*) widgets=yes ;; *) widgets=no ;; esac
+            [ "$widgets" = "$7" ] || { echo "$1 $3 $4: HQ_WIDGETS $widgets, want $7 ($flags)"; exit 1; }
+          }
+          check HQ macosx Debug local Resources/HQ.entitlements no no
+          check HQ macosx Release local Resources/HQ-Release.entitlements no no
+          check HQ macosx Debug team Resources/HQ-Team.entitlements yes yes
+          check HQ macosx Release team Resources/HQ-Release-Team.entitlements yes yes
+          check HQ-iOS iphonesimulator Debug local '' no no
+          check HQ-iOS iphonesimulator Release local '' no no
+          check HQ-iOS iphonesimulator Debug team Resources/HQ-iOS.entitlements yes no
+          check HQ-iOS iphonesimulator Release team Resources/HQ-iOS-Release.entitlements yes no
+          check HQWidgets macosx Debug local Resources/HQWidgets.entitlements no no
+          check HQWidgets macosx Release local Resources/HQWidgets.entitlements no no
+          check HQWidgets macosx Debug team Resources/HQWidgets-Team.entitlements no no
+          check HQWidgets macosx Release team Resources/HQWidgets-Team.entitlements no no
+      - name: Build the Mac app
+        run: |
+          xcodebuild -project HQ.xcodeproj -scheme HQ -configuration Debug \
+            -derivedDataPath .dd build CODE_SIGNING_ALLOWED=NO
+      - name: Build the iPhone app for the Simulator
+        run: |
+          xcodebuild -project HQ.xcodeproj -scheme HQ-iOS -configuration Debug \
+            -derivedDataPath .dd -destination 'generic/platform=iOS Simulator' \
+            build CODE_SIGNING_ALLOWED=NO
+      # Team mode swaps in the push entitlements; this proves that path still
+      # compiles. Nothing is signed (no team exists on the runner).
+      - name: Build both apps in team mode (push entitlements, unsigned)
+        run: |
+          set -eu
+          xcodebuild -project HQ.xcodeproj -scheme HQ -configuration Debug \
+            -derivedDataPath .dd-team build CODE_SIGNING_ALLOWED=NO HQ_SIGNING_MODE=team
+          xcodebuild -project HQ.xcodeproj -scheme HQ-iOS -configuration Debug \
+            -derivedDataPath .dd-team -destination 'generic/platform=iOS Simulator' \
+            build CODE_SIGNING_ALLOWED=NO HQ_SIGNING_MODE=team
+      - name: Mac unit tests
+        run: |
+          set -eu
+          for scheme in HQ HQLiveTests-Mac HQHomeTests-Mac HQTypingTests-Mac HQSessionSyncTests-Mac; do
+            xcodebuild -project HQ.xcodeproj -scheme "$scheme" -configuration Debug \
+              -derivedDataPath .dd test CODE_SIGNING_ALLOWED=NO
+          done
+      - name: iPhone unit tests
+        run: |
+          set -eu
+          for scheme in HQHomeTests-iOS HQPhotoTests-iOS HQAudioTests-iOS; do
+            xcodebuild -project HQ.xcodeproj -scheme "$scheme" -configuration Debug \
+              -derivedDataPath .dd -destination 'platform=iOS Simulator,name=iPhone 17' \
+              test CODE_SIGNING_ALLOWED=NO
+          done
+
+  # The app's real networking code (HQClient, EventSocket, AppStore) against a real HQ Community
+  # server started from this checkout: no fixtures, no mocks. Calls go through test/fake-sfu.ts,
+  # a local stand-in for the video relay that carries no media.
+  live:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      LIVE_PORT: '18790'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Select Xcode 26.6
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app
+      - name: Install XcodeGen (pinned release, checked against its sha256)
+        env:
+          XCODEGEN_VERSION: '2.46.0'
+          XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+        run: |
+          set -eu
+          dir="$RUNNER_TEMP/xcodegen-download"
+          mkdir -p "$dir"
+          curl -fsSL -o "$dir/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  $dir/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$dir/xcodegen.zip" -d "$dir/unpacked"
+          echo "$dir/unpacked/xcodegen/bin" >> "$GITHUB_PATH"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Start a server with two people
+        run: |
+          set -eu
+          # A fresh database, an admin (Ada) and a member (Bo). The two sign-in keys go to files in
+          # the repo root and are masked in the log; command output is never echoed.
+          export HQ_DB="$RUNNER_TEMP/hq-live/hq.sqlite" PORT="$LIVE_PORT" HQ_HOST=127.0.0.1
+          mkdir -p "$RUNNER_TEMP/hq-live"
+          bun hq setup --handle ada --name Ada > setup.out 2> setup.err
+          bun hq invite bo --name Bo > invite.out 2> invite.err
+          awk '/^  Key / { print $2 }' setup.out > ada.key
+          awk '/^  Key / { print $2 }' invite.out > bo.key
+          rm -f setup.out invite.out
+          for f in ada.key bo.key; do
+            test -s "$f" || { echo "no key in the $f output"; exit 1; }
+            echo "::add-mask::$(cat "$f")"
+          done
+          # Calls go to a local fake relay. Its secret is made here, shared through a file and never printed.
+          SFU_PORT=18791
+          openssl rand -hex 24 > "$RUNNER_TEMP/hq-live/sfu.secret"
+          HQ_CALLS_SFU_SECRET="$(cat "$RUNNER_TEMP/hq-live/sfu.secret")" \
+            nohup bun test/fake-sfu.ts --port "$SFU_PORT" > sfu.log 2>&1 &
+          export HQ_CALLS_SFU_APP_ID=live-app HQ_CALLS_SFU_SECRET_FILE="$RUNNER_TEMP/hq-live/sfu.secret"
+          export HQ_CALLS_SFU_URL="http://127.0.0.1:${SFU_PORT}/v1"
+          # Transcripts come from the built-in scripted speech-to-text, so no outside service is called.
+          export HQ_STT_PROVIDER=mock
+          nohup bun src/server.ts > server.log 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:${LIVE_PORT}/healthz" > /dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          echo "the server did not come up"
+          cat server.log
+          exit 1
+      - name: Generate the Xcode project
+        working-directory: clients/apple
+        run: xcodegen generate
+      - name: Live server tests
+        working-directory: clients/apple
+        run: |
+          set -eu -o pipefail
+          # TEST_RUNNER_ names reach the test host with the prefix removed.
+          export TEST_RUNNER_HQ_LIVE_SERVER="http://127.0.0.1:${LIVE_PORT}"
+          export TEST_RUNNER_HQ_LIVE_KEY_A="$(cat "$GITHUB_WORKSPACE/ada.key")"
+          export TEST_RUNNER_HQ_LIVE_KEY_B="$(cat "$GITHUB_WORKSPACE/bo.key")"
+          # LivePushTests reads the stored tokens back from the server's database file.
+          export TEST_RUNNER_HQ_LIVE_DB="$RUNNER_TEMP/hq-live/hq.sqlite"
+          # Each live test class, and how many of its tests must pass.
+          expected="LiveServerTests:8 LivePlanningTests:3 LiveLibraryTests:5 LivePushTests:2 LiveWidgetTests:3 LiveSessionsTests:2 LiveSessionSyncTests:2"
+          only=""
+          for pair in $expected; do only="$only -only-testing:HQTests/${pair%%:*}"; done
+          # shellcheck disable=SC2086 # $only is a list of flags
+          xcodebuild -project HQ.xcodeproj -scheme HQ -configuration Debug \
+            -derivedDataPath .dd test $only \
+            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/live-tests.log"
+          # A skipped test is a green run that proved nothing: every live test must have passed.
+          for pair in $expected; do
+            class=${pair%%:*} want=${pair#*:}
+            passed=$(grep -c "Test Case '-\[HQTests.$class .*\]' passed" "$RUNNER_TEMP/live-tests.log" || true)
+            test "$passed" -eq "$want" || { echo "expected $want $class tests to pass, saw $passed"; exit 1; }
+          done
+      - name: Live call tests
+        working-directory: clients/apple
+        # A run of its own, after the step above: LiveServerTests expects a server with no calls yet.
+        run: |
+          set -eu -o pipefail
+          export TEST_RUNNER_HQ_LIVE_SERVER="http://127.0.0.1:${LIVE_PORT}"
+          export TEST_RUNNER_HQ_LIVE_KEY_A="$(cat "$GITHUB_WORKSPACE/ada.key")"
+          export TEST_RUNNER_HQ_LIVE_KEY_B="$(cat "$GITHUB_WORKSPACE/bo.key")"
+          xcodebuild -project HQ.xcodeproj -scheme HQ -configuration Debug \
+            -derivedDataPath .dd test -only-testing:HQTests/LiveCallsTests \
+            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/live-calls.log"
+          passed=$(grep -c "Test Case '-\[HQTests.LiveCallsTests .*\]' passed" "$RUNNER_TEMP/live-calls.log" || true)
+          test "$passed" -eq 4 || { echo "expected 4 LiveCallsTests to pass, saw $passed"; exit 1; }
+      - name: Server log
+        if: failure()
+        run: |
+          tail -n 100 server.log
+          tail -n 50 sfu.log

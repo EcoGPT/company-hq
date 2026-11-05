@@ -1,0 +1,83 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun run ci
+
+  e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun run e2e
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - run: docker build -t hq-community .
+      - name: boots and answers /healthz
+        run: |
+          docker run -d --name hq -p 8787:8787 hq-community
+          for i in $(seq 1 20); do curl -fsS localhost:8787/healthz && exit 0; sleep 1; done
+          docker logs hq
+          exit 1
+      - name: fresh install works end to end (setup, invite, enroll, send, socket, chat)
+        run: |
+          set -eu
+          docker exec hq bun hq setup --handle ada --name Ada | tee setup.log
+          docker exec hq bun hq invite bo --name Bo | tee invite.log
+          key() { sed -n 's/^ *Key  *\(hq_[A-Za-z0-9_-]*\)$/\1/p' "$1"; }
+          enroll() {
+            curl -fsS -H 'content-type: application/json' -d "{\"key\":\"$1\",\"device_name\":\"ci\"}" localhost:8787/v1/enroll | jq -r .bearer
+          }
+          ada=$(enroll "$(key setup.log)")
+          bo=$(enroll "$(key invite.log)")
+          # The keys the CLI prints sign devices in and are never bearers.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H "authorization: Bearer $(key setup.log)" localhost:8787/v1/me)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H "authorization: Bearer $(key invite.log)" localhost:8787/v1/me)" = 401
+          general=$(curl -fsS -H "authorization: Bearer $ada" localhost:8787/v1/conversations | jq -r '.conversations[] | select(.room_slug == "general") | .id')
+          send() {
+            curl -fsS -H "authorization: Bearer $1" -H 'content-type: application/json' \
+              -d "{\"client_msg_id\":\"$(cat /proc/sys/kernel/random/uuid)\",\"content\":\"$2\"}" \
+              "localhost:8787/v1/conversations/$general/messages" > /dev/null
+          }
+          latest() { curl -fsS -H "authorization: Bearer $1" "localhost:8787/v1/conversations/$general/messages?limit=5" | jq -r '.messages[].content'; }
+          send "$ada" 'hello from a fresh container'
+          latest "$bo" | grep -q 'hello from a fresh container'
+          send "$bo" '@atlas ping'
+          for i in $(seq 1 20); do
+            latest "$ada" | grep -q 'You said: @atlas ping' && break
+            sleep 1
+          done
+          latest "$ada" | grep -q 'You said: @atlas ping'
+          docker exec -e BEARER="$ada" hq bun -e 'const ws = new WebSocket("ws://localhost:8787/v1/ws", { headers: { authorization: `Bearer ${process.env.BEARER}` } }); ws.onmessage = (e) => process.exit(JSON.parse(e.data).type === "hello" ? 0 : 1); setTimeout(() => process.exit(1), 5000)'
+          curl -s -o /dev/null -w '%{http_code}\n' localhost:8787/v1/people | grep -q 401
+          docker exec hq bun hq doctor
+          echo 'what is 2+2' | docker exec -i hq bun hq chat --as ada | grep -q 'You said'
+          # `bun hq invite` ends the setup key; the device it made carries on.
+          docker exec hq bun hq invite ada
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' -d "{\"key\":\"$(key setup.log)\"}" localhost:8787/v1/enroll)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H "authorization: Bearer $ada" localhost:8787/v1/me)" = 200

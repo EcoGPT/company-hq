@@ -1,0 +1,91 @@
+{
+	"_source": "The JSON keys the native app's Swift structs decode for tasks, projects and comments: TeamTask, Project and HQComment in Wire.swift, and the envelopes HQClient.swift reads them from.",
+	"frames": {
+		"tasks": "TasksPayload"
+	},
+	"sent_by": {
+		"tasks": "apps/tasks/planning.test.ts"
+	},
+	"structs": {
+		"TeamTask": {
+			"id": { "required": true },
+			"number": { "required": false },
+			"title": { "required": true },
+			"body": { "required": false },
+			"status": { "required": true },
+			"recurrence": { "required": false },
+			"next_task_id": { "required": false },
+			"owner_person_id": { "required": true },
+			"owner_name": { "required": true },
+			"due_at": { "required": false },
+			"origin_conversation_id": { "required": false },
+			"created_by_person_id": { "required": true },
+			"created_at": { "required": true },
+			"resolved_by_person_id": { "required": false },
+			"resolved_at": { "required": false },
+			"project_id": { "required": false },
+			"project_ids": { "required": false },
+			"touched_at": { "required": false },
+			"comment_count": { "required": false }
+		},
+		"Project": {
+			"id": { "required": true },
+			"name": { "required": true },
+			"body": { "required": false },
+			"owner_person_id": { "required": true },
+			"owner_name": { "required": true },
+			"status": { "required": true },
+			"open_tasks": { "required": true },
+			"total_tasks": { "required": false },
+			"last_task_resolved_at": { "required": false },
+			"created_at": { "required": true },
+			"closed_at": { "required": false },
+			"archived_at": { "required": false },
+			"tags": { "required": false },
+			"planning_category": { "required": false },
+			"planning_state": { "required": false },
+			"planning_order": { "required": false },
+			"due_at": { "required": false },
+			"kind": { "required": false },
+			"comment_count": { "required": false },
+			"system_key": { "required": false }
+		},
+		"HQComment": {
+			"id": { "required": true },
+			"author_name": { "required": true },
+			"author_person_id": { "required": true },
+			"body": { "required": true },
+			"created_at": { "required": true },
+			"via": { "required": false }
+		},
+		"TasksPayload": {
+			"tasks": { "required": true, "of": "TeamTask", "list": true }
+		},
+		"TasksEnvelope": {
+			"tasks": { "required": true, "of": "TeamTask", "list": true },
+			"recurring_tasks": { "required": false }
+		},
+		"TaskEnvelope": {
+			"task": { "required": true, "of": "TeamTask" }
+		},
+		"ProjectsEnvelope": {
+			"projects": { "required": true, "of": "Project", "list": true },
+			"planning": { "required": false },
+			"project_task_links": { "required": false },
+			"open_transcripts": { "required": false }
+		},
+		"ProjectEnvelope": {
+			"project": { "required": true, "of": "Project" }
+		},
+		"CommentsEnvelope": {
+			"comments": { "required": true, "of": "HQComment", "list": true }
+		},
+		"CommentEnvelope": {
+			"comment": { "required": true, "of": "HQComment" }
+		},
+		"OkEnvelope": {
+			"ok": { "required": true }
+		}
+	},
+	"ignored": {}
+}

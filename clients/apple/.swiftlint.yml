@@ -1,0 +1,81 @@
+# SwiftLint settings for the HQ Apple clients.
+excluded:
+  - build
+  - .dd
+  - DerivedData
+  - HQ.xcodeproj
+
+disabled_rules:
+  # The codebase consistently uses trailing commas; the default rule forbids
+  # them. Formatting is not this tool's job.
+  - trailing_comma
+  # SwiftUI view hierarchies nest by design, and a typed REST client nests one
+  # response envelope per call — both are legitimate structure.
+  - nesting
+  # A SwiftUI view body is long because the view is, and splitting one to
+  # satisfy a line count makes it harder to read, not safer.
+  - file_length
+  - type_body_length
+  - function_body_length
+
+# Short names in tight scopes (`ws`, `id`, `me`) are correct Swift; the default
+# 3-character floor is not.
+identifier_name:
+  min_length:
+    warning: 1
+    error: 1
+
+opt_in_rules:
+  - discouraged_optional_boolean
+  - discouraged_optional_collection
+  - empty_count
+  - empty_string
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - prefer_self_in_static_references
+  - redundant_nil_coalescing
+  - unhandled_throwing_task
+  - unowned_variable_capture
+
+force_cast:
+  severity: error
+force_try:
+  severity: error
+force_unwrapping:
+  severity: error
+implicitly_unwrapped_optional:
+  severity: error
+discouraged_optional_boolean:
+  severity: warning
+discouraged_optional_collection:
+  severity: warning
+empty_count:
+  severity: error
+empty_string:
+  severity: error
+prefer_self_in_static_references:
+  severity: error
+redundant_nil_coalescing:
+  severity: error
+unhandled_throwing_task:
+  severity: error
+unowned_variable_capture:
+  severity: error
+
+line_length:
+  warning: 120
+  error: 120
+  ignores_comments: true
+  ignores_urls: true
+
+custom_rules:
+  boolean_property_naming:
+    name: Boolean Property Naming
+    regex: '(?-s)(?m)^[ \t]*(?:@[A-Za-z_][A-Za-z0-9_.]*(?:\([^()\n]*\))?[ \t]+)*(?:(?:public|internal|private|fileprivate|open|static|class|final|lazy|weak|unowned|nonisolated|override|private\(set\)|internal\(set\))[ \t]+)*(?:let|var)[ \t]+(?!is[A-Z0-9_]|are[A-Z0-9_]|was[A-Z0-9_]|did[A-Z0-9_]|has[A-Z0-9_]|can[A-Z0-9_]|should[A-Z0-9_])[A-Za-z_][A-Za-z0-9_]*[ \t]*(?::[ \t]*Bool(?:\?)?(?=[ \t=,{\n])|=[ \t]*(?:true|false)\b)'
+    message: Bool properties must start with is, are, was, did, has, can, or should.
+    severity: error
+  boolean_function_naming:
+    name: Boolean Function Naming
+    regex: '(?-s)(?m)^[ \t]*(?![^\n]*\boverride\b)(?:@[A-Za-z_][A-Za-z0-9_.]*(?:\([^()\n]*\))?[ \t]+)*(?:(?:public|internal|private|fileprivate|open|static|class|final|mutating|nonmutating|nonisolated)[ \t]+)*func[ \t]+(?!is[A-Z0-9_]|are[A-Z0-9_]|was[A-Z0-9_]|did[A-Z0-9_]|has[A-Z0-9_]|can[A-Z0-9_]|should[A-Z0-9_])[A-Za-z_][A-Za-z0-9_]*[ \t]*(?:<[^>{}\n]+>[ \t]*)?\([^)]*\)[ \t]*(?:async[ \t]+)?(?:throws[ \t]+)?->[ \t]*Bool\b'
+    message: Bool-returning functions must start with is, are, was, did, has, can, or should.
+    severity: error

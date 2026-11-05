@@ -1,0 +1,38 @@
+{
+	"_source": "The JSON keys the Mac app's WidgetSummary (Sources/WidgetShared/WidgetSummary.swift) decodes from GET /v1/widgets/summary, and the one key POST /v1/widgets/key is read for (WidgetAPI.mintKey).",
+	"structs": {
+		"WidgetSummary": {
+			"version": { "required": true },
+			"generated_at": { "required": true },
+			"me": { "required": true, "of": "WidgetMe" },
+			"work": { "required": true, "of": "WidgetWork" }
+		},
+		"WidgetMe": {
+			"id": { "required": true },
+			"name": { "required": true },
+			"avatar_id": { "required": false }
+		},
+		"WidgetWork": {
+			"in_progress": { "required": true },
+			"open": { "required": true },
+			"blocked": { "required": true },
+			"done_week": { "required": true },
+			"next_due": { "required": false, "of": "WidgetTask" },
+			"tasks": { "required": true, "of": "WidgetTask", "list": true }
+		},
+		"WidgetTask": {
+			"id": { "required": true },
+			"number": { "required": false },
+			"ref": { "required": false },
+			"title": { "required": true },
+			"status": { "required": true },
+			"project_name": { "required": false },
+			"comment_count": { "required": true },
+			"due_at": { "required": false },
+			"touched_at": { "required": true }
+		},
+		"WidgetKey": {
+			"key": { "required": true }
+		}
+	}
+}

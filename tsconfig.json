@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"target": "ES2023",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ES2023", "DOM"],
+		"types": ["bun"],
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"skipLibCheck": true,
+		"noEmit": true,
+		"resolveJsonModule": true,
+		"allowJs": true,
+		"verbatimModuleSyntax": true,
+		"paths": {
+			"@hq/sdk": ["./src/sdk.ts"],
+			"@hq/sdk/testing": ["./src/testing.ts"]
+		},
+		"noUnusedLocals": true
+	},
+	"include": ["src", "apps", "assistant", "connectors", "bin", "test", "e2e", "hq.config.ts"]
+}

@@ -1,0 +1,128 @@
+{
+	"_source": "The JSON keys the native app decodes for live calls: Call, CallParticipant, CallTrack, CallRecord (and its parts) and IncomingCall in Wire.swift; JoinedCall, SubscribeResult, SubscribedTrack, SessionDescriptionWire, RefusedTrack the publish envelope and the retranscribe answer (`retranscribe`'s `Envelope`) in HQClient.swift; and the four call frames' payloads in ServerFrame.",
+	"frames": {
+		"call_state": "CallStatePayload",
+		"call_ended": "CallEndedPayload",
+		"call_ring": "IncomingCall",
+		"call_ring_ended": "CallRingEndedPayload"
+	},
+	"sent_by": {
+		"call_state": "test/calls.test.ts",
+		"call_ended": "test/calls.test.ts",
+		"call_ring": "test/calls.test.ts",
+		"call_ring_ended": "test/calls.test.ts"
+	},
+	"structs": {
+		"Call": {
+			"id": { "required": true },
+			"conversation_id": { "required": true },
+			"kind": { "required": true },
+			"meeting_id": { "required": false },
+			"title": { "required": false },
+			"started_by_person_id": { "required": true },
+			"started_at": { "required": true },
+			"ended_at": { "required": false },
+			"participants": { "required": true, "of": "CallParticipant", "list": true },
+			"tracks": { "required": true, "of": "CallTrack", "list": true }
+		},
+		"CallParticipant": {
+			"device_id": { "required": true },
+			"person_id": { "required": true },
+			"session_id": { "required": false },
+			"is_muted": { "required": true },
+			"is_camera_on": { "required": true },
+			"is_screen_sharing": { "required": true },
+			"is_hand_raised": { "required": true },
+			"joined_at": { "required": true },
+			"left_at": { "required": false }
+		},
+		"CallTrack": {
+			"track_name": { "required": true },
+			"session_id": { "required": true },
+			"device_id": { "required": true },
+			"person_id": { "required": true },
+			"source": { "required": true },
+			"created_at": { "required": true },
+			"ended_at": { "required": false }
+		},
+		"JoinedCall": {
+			"call": { "required": true, "of": "Call" },
+			"session_id": { "required": true },
+			"generation": { "required": true },
+			"capabilities": { "required": false }
+		},
+		"SessionDescriptionWire": {
+			"sdp": { "required": true },
+			"type": { "required": true }
+		},
+		"PublishEnvelope": {
+			"session_description": { "required": true, "of": "SessionDescriptionWire" },
+			"refused": { "required": false, "of": "RefusedTrack", "list": true }
+		},
+		"RefusedTrack": {
+			"mid": { "required": true },
+			"source": { "required": true },
+			"error_code": { "required": true }
+		},
+		"SubscribeResult": {
+			"tracks": { "required": true, "of": "SubscribedTrack", "list": true },
+			"session_description": { "required": false, "of": "SessionDescriptionWire" },
+			"requires_immediate_renegotiation": { "required": true }
+		},
+		"SubscribedTrack": {
+			"mid": { "required": false },
+			"track_name": { "required": false },
+			"error_code": { "required": false }
+		},
+		"IncomingCall": {
+			"call": { "required": true, "of": "Call" },
+			"caller_name": { "required": true },
+			"conversation_title": { "required": false },
+			"expires_at": { "required": true }
+		},
+		"CallRecord": {
+			"call": { "required": true, "of": "Call" },
+			"summary": { "required": false },
+			"recap_at": { "required": false },
+			"transcript": { "required": true, "of": "TranscriptLine", "list": true },
+			"recordings": { "required": true, "of": "CallRecording", "list": true },
+			"health": { "required": false, "of": "CallHealth" }
+		},
+		"TranscriptLine": {
+			"person_id": { "required": true },
+			"name": { "required": true },
+			"at_ms": { "required": true },
+			"text": { "required": true }
+		},
+		"CallRecording": {
+			"device_id": { "required": true },
+			"person_id": { "required": true },
+			"name": { "required": true },
+			"seconds": { "required": true }
+		},
+		"CallHealth": {
+			"joins": { "required": true },
+			"rejoins": { "required": true },
+			"sweeps": { "required": true },
+			"socket_losses": { "required": true },
+			"sfu_failures": { "required": true },
+			"refused_tracks": { "required": true },
+			"transcription_failures": { "required": true },
+			"recording_failures": { "required": true },
+			"ring_failures": { "required": true }
+		},
+		"CallStatePayload": {
+			"call": { "required": true, "of": "Call" }
+		},
+		"CallEndedPayload": {
+			"call_id": { "required": true },
+			"ended_at": { "required": true }
+		},
+		"CallRingEndedPayload": {
+			"call_id": { "required": true }
+		},
+		"RetranscribeResult": {
+			"ok": { "required": true }
+		}
+	}
+}

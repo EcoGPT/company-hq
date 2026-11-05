@@ -1,0 +1,48 @@
+// Signing and identity for every target. Edit this file (or override on the xcodebuild
+// command line) to sign with your own team; nothing else in the project names a team.
+//
+// BUNDLE_ID_PREFIX: the reverse-DNS prefix of the app's bundle id. The Mac and iPhone apps
+// are both `$(BUNDLE_ID_PREFIX).hq`, and the Keychain service, log subsystems, cache folders
+// and the `hq://` URL type's name are all derived from the bundle id at run time.
+BUNDLE_ID_PREFIX = org.example
+
+// DEVELOPMENT_TEAM: your 10-character Apple team id. Empty is fine for Debug builds, which run
+// unsigned in the iOS Simulator and ad-hoc signed on a Mac ("Sign to Run Locally").
+DEVELOPMENT_TEAM =
+
+// HQ_SIGNING_MODE: `local` (the default) or `team`.
+//   local: no push and no desktop widgets. The entitlements are exactly the ones a build needs
+//          with no Apple team (the Mac Debug file is empty, Mac Release has camera and
+//          microphone, the iPhone app has none), the Mac is ad-hoc signed, the app never
+//          registers for push, and the widget extension is built but not put in the app.
+//   team:  message push with the app closed. Adds the push entitlement
+//          (`com.apple.developer.aps-environment` on the Mac, `aps-environment` on the
+//          iPhone; development for Debug, production for Release) and signs the Mac with
+//          your team's Apple Development identity. It also adds the App Group the Mac's desktop
+//          widgets share with the app (`$(TeamIdentifierPrefix)` + the bundle id) and puts the
+//          widget extension in the Mac app. Set it together with DEVELOPMENT_TEAM, and use an
+//          App ID that has the Push Notifications capability.
+HQ_SIGNING_MODE = local
+
+// What each mode picks. project.yml reads these; the entitlements files are hand-maintained
+// in Resources/ and only referenced (never XcodeGen's `entitlements:` key).
+HQ_ENTITLEMENTS_SUFFIX_local =
+HQ_ENTITLEMENTS_SUFFIX_team = -Team
+HQ_ENTITLEMENTS_SUFFIX = $(HQ_ENTITLEMENTS_SUFFIX_$(HQ_SIGNING_MODE))
+HQ_IOS_ENTITLEMENTS_local =
+HQ_IOS_ENTITLEMENTS_team = Resources/HQ-iOS.entitlements
+HQ_IOS_ENTITLEMENTS_team[config=Release] = Resources/HQ-iOS-Release.entitlements
+HQ_IOS_ENTITLEMENTS = $(HQ_IOS_ENTITLEMENTS_$(HQ_SIGNING_MODE))
+HQ_MAC_IDENTITY_local = -
+HQ_MAC_IDENTITY_team = Apple Development
+// The Swift flag that turns on registration and the server report (`PushState.isBuilt`).
+HQ_PUSH_CONDITION_local =
+HQ_PUSH_CONDITION_team = HQ_PUSH
+HQ_PUSH_CONDITION = $(HQ_PUSH_CONDITION_$(HQ_SIGNING_MODE))
+// The same for the desktop widgets (`WidgetSync.isBuilt`): without it the Mac app never starts the sync.
+HQ_WIDGETS_CONDITION_local =
+HQ_WIDGETS_CONDITION_team = HQ_WIDGETS
+HQ_WIDGETS_CONDITION = $(HQ_WIDGETS_CONDITION_$(HQ_SIGNING_MODE))
+
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY[sdk=macosx*] = $(HQ_MAC_IDENTITY_$(HQ_SIGNING_MODE))

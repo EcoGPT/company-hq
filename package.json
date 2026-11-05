@@ -1,0 +1,45 @@
+{
+	"name": "hq-community",
+	"version": "0.1.0",
+	"description": "Self-hosted team chat with an AI assistant in every room, and apps you write in one file.",
+	"keywords": [
+		"team-chat",
+		"ai-assistant",
+		"self-hosted",
+		"llm",
+		"mcp",
+		"bun",
+		"sqlite"
+	],
+	"homepage": "https://github.com/EcoGPT/company-hq#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/EcoGPT/company-hq.git"
+	},
+	"bugs": "https://github.com/EcoGPT/company-hq/issues",
+	"private": true,
+	"license": "MIT",
+	"engines": {
+		"bun": ">=1.3"
+	},
+	"type": "module",
+	"scripts": {
+		"dev": "bun --watch src/server.ts",
+		"start": "bun src/server.ts",
+		"hq": "bun bin/hq.ts",
+		"test": "bun test",
+		"e2e": "bun test --timeout 60000 ./e2e/protocol.e2e.ts",
+		"typecheck": "tsc --noEmit",
+		"ci": "bun run format:check && bun run typecheck && bun run test",
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
+	},
+	"dependencies": {
+		"zod": "^4.1.0"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.3.0",
+		"prettier": "3",
+		"typescript": "^5.9.0"
+	}
+}
