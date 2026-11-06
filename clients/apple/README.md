@@ -241,6 +241,8 @@ environment. `docs/architecture.md` lists the other switches.
 
 Notifications are local banners while the app runs. Message push and the
 badge with the app closed need a team-signed build (`HQ_SIGNING_MODE=team`) and
-a server that holds an APNs key. Calls ring through CallKit on iPhone while the
-app is running; there are no push rings yet. Widgets are Mac-only and need a
-team-signed build (see "Desktop widgets").
+a server that holds an APNs key. Calls ring through CallKit on iPhone; a
+team-signed build with server push configured can also ring through VoIP push
+while the app is closed. See [`docs/push.md`](../../docs/push.md#rings) for the
+server requirements. Widgets are Mac-only and need a team-signed build (see
+"Desktop widgets").
