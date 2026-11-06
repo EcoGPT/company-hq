@@ -47,7 +47,7 @@ function shape(name: string, value: unknown, path = name): string[] {
 }
 
 /** `ms` of 16 kHz mono 16-bit audio, every sample `value`. */
-function pcm(ms: number, value: number): Uint8Array {
+function pcm(ms: number, value: number): Uint8Array<ArrayBuffer> {
 	const samples = new Int16Array(ms * 16).fill(value);
 	return new Uint8Array(samples.buffer);
 }
@@ -170,7 +170,7 @@ async function setup(
 	return { ...made, sfu, clock, log, server, dm, stt, start, ask, feed, talk, wav, end };
 }
 
-type Feed = { ws: WebSocket; send(data: Uint8Array | string): void; ping(): Promise<void>; closed: Promise<number> };
+type Feed = { ws: WebSocket; send(data: Uint8Array<ArrayBuffer> | string): void; ping(): Promise<void>; closed: Promise<number> };
 
 async function openFeed(port: number, callId: string, bearer: string): Promise<Feed> {
 	// Bun's WebSocket takes request headers, which the DOM typings do not know about.
